@@ -67,7 +67,7 @@
           <p style="margin-top: 12px; font-size: 0.9rem; line-height: 1.5;">
             <strong>Counter ID:</strong> <code id="counterIdDisplay">beachview246-counter-printer</code><br>
             <strong>Status:</strong> Ready for mobile connections.<br>
-            <strong>Connection type:</strong> Multi-STUN Direct P2P Relay.<br>
+            <strong>Connection type:</strong> Direct WebSocket/P2P Relay.<br>
             <strong>Storage:</strong> Direct PC transfer (No server logs retained).
           </p>
         </div>
@@ -123,18 +123,12 @@
   <script>
     const FIXED_STATION_ID = "beachview246-counter-printer";
 
-    // Enhanced PeerJS configuration with public STUN servers to bypass mobile carrier firewalls
-    const peerConfig = {
-      host: '0.peerjs.com',
-      port: 443,
-      secure: true,
-      config: {
-        'iceServers': [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
-      }
-    };
+    // Fallback across multiple public PeerJS brokers to prevent network blocks
+    const brokers = [
+      { host: '0.peerjs.com', port: 443, secure: true },
+      { host: 'peerjs-server.herokuapp.com', port: 443, secure: true }
+    ];
+    let brokerIndex = 0;
 
     const urlParams = new URLSearchParams(window.location.search);
     const stationParam = urlParams.get('station');
@@ -146,7 +140,7 @@
       let conn = null;
 
       function connectToCounter() {
-        document.getElementById('mobileStatus').innerText = 'Connecting through network relay...';
+        document.getElementById('mobileStatus').innerText = 'Connecting to counter...';
         document.getElementById('mobileStatus').className = 'status-badge status-waiting';
         document.getElementById('connectBtn').innerText = 'Connecting...';
 
@@ -154,20 +148,21 @@
           try { peer.destroy(); } catch(e){}
         }
 
-        peer = new Peer(peerConfig);
+        const currentBroker = brokers[brokerIndex];
+        peer = new Peer(currentBroker);
 
-        let connectionTimeout = setTimeout(() => {
+        let timeout = setTimeout(() => {
           if (!conn || conn.open !== true) {
-            document.getElementById('mobileStatus').innerText = 'Connection timed out. Tap to Retry.';
-            document.getElementById('connectBtn').innerText = 'Tap to Retry Connection';
+            brokerIndex = (brokerIndex + 1) % brokers.length;
+            connectToCounter(); // Auto-switch broker on timeout
           }
-        }, 8000);
+        }, 5000);
 
-        peer.on('open', (id) => {
+        peer.on('open', () => {
           conn = peer.connect(FIXED_STATION_ID, { reliable: true });
           
           conn.on('open', () => {
-            clearTimeout(connectionTimeout);
+            clearTimeout(timeout);
             document.getElementById('mobileStatus').innerText = 'Connected to Printer Desk!';
             document.getElementById('mobileStatus').className = 'status-badge status-online';
             document.getElementById('connectBtn').style.display = 'none';
@@ -176,22 +171,21 @@
           });
 
           conn.on('error', (err) => {
-            clearTimeout(connectionTimeout);
-            document.getElementById('mobileStatus').innerText = 'Connection blocked. Tap to Retry.';
-            document.getElementById('connectBtn').innerText = 'Tap to Retry Connection';
+            clearTimeout(timeout);
+            document.getElementById('mobileStatus').innerText = 'Retrying connection...';
           });
         });
 
         peer.on('error', (err) => {
-          clearTimeout(connectionTimeout);
-          document.getElementById('mobileStatus').innerText = 'Network restricted. Tap to Retry.';
-          document.getElementById('connectBtn').innerText = 'Tap to Retry Connection';
+          clearTimeout(timeout);
+          brokerIndex = (brokerIndex + 1) % brokers.length;
+          setTimeout(connectToCounter, 1000);
         });
       }
 
       function sendFile(file) {
         if (!file || !conn || conn.open !== true) {
-          alert('Not connected to counter yet! Please tap "Tap to Connect to Counter" first.');
+          alert('Please tap "Tap to Connect to Counter" first.');
           return;
         }
         document.getElementById('uploadProgress').style.display = 'block';
@@ -218,7 +212,8 @@
       document.getElementById('counterIdDisplay').innerText = FIXED_STATION_ID;
       
       function initPeer() {
-        const peer = new Peer(FIXED_STATION_ID, peerConfig);
+        const currentBroker = brokers[brokerIndex];
+        const peer = new Peer(FIXED_STATION_ID, currentBroker);
 
         peer.on('open', (id) => {
           document.getElementById('stationStatus').innerText = 'Online & Ready';
@@ -239,10 +234,15 @@
             document.getElementById('stationStatus').innerText = 'Reconnecting station...';
             setTimeout(() => {
               peer.destroy();
+              brokerIndex = (brokerIndex + 1) % brokers.length;
               initPeer();
             }, 3000);
           } else {
-            document.getElementById('stationStatus').innerText = 'Error: ' + err.type;
+            document.getElementById('stationStatus').innerText = 'Connecting fallback...';
+            setTimeout(() => {
+              brokerIndex = (brokerIndex + 1) % brokers.length;
+              initPeer();
+            }, 3000);
           }
         });
 
