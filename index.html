@@ -43,7 +43,7 @@
 <body>
 
   <div class="container">
-    <!-- DESKTOP DASHBOARD MODE -->
+    <!-- DESKTOP COUNTER DASHBOARD MODE -->
     <div id="desktopMode" style="display: none;">
       <div class="header">
         <h1>QuickPrint Station Counter Dashboard</h1>
@@ -131,9 +131,14 @@
         const progress = document.getElementById('uploadProgress');
         progress.style.display = 'block';
         progress.style.color = 'var(--primary)';
-        progress.innerText = 'Uploading file to printer counter...';
+        progress.innerText = 'Preparing file for upload...';
 
         const reader = new FileReader();
+        reader.onerror = function() {
+          progress.innerText = 'Error reading file. Please try a smaller file.';
+          progress.style.color = '#dc2626';
+        };
+
         reader.onload = async function(event) {
           const payload = {
             name: file.name,
@@ -144,14 +149,9 @@
             timestamp: Date.now()
           };
 
-          try {
-            // Using pastebin/json storage relay for cross-device sync
-            await fetch(`https://api.allorigins.win/raw?url=` + encodeURIComponent(`https://ntfy.sh/quickprint_${STATION_ID}`), {
-              method: 'POST',
-              body: JSON.stringify(payload)
-            });
+          progress.innerText = 'Sending to counter relay...';
 
-            // Also send direct via ntfy pub-sub web service for instant cross-device delivery
+          try {
             await fetch(`https://ntfy.sh/quickprint_${STATION_ID}`, {
               method: 'POST',
               body: JSON.stringify(payload)
@@ -160,14 +160,14 @@
             progress.innerText = '✓ Sent successfully! Check with counter.';
             progress.style.color = '#16a34a';
           } catch (err) {
-            progress.innerText = 'Upload failed. Please check network and retry.';
+            progress.innerText = 'Upload failed. Check your network and retry.';
             progress.style.color = '#dc2626';
           }
         };
         reader.readAsDataURL(file);
       }
     } else {
-      // DESKTOP COUNTER DASHBOARD VIEW
+      // DESKTOP COUNTER DASHBOARD VIEW (Ensure no ?station= in URL)
       document.getElementById('desktopMode').style.display = 'block';
       document.getElementById('counterIdDisplay').innerText = STATION_ID;
 
@@ -182,7 +182,6 @@
 
       let lastReceivedTimestamp = 0;
 
-      // Real-time polling listener for incoming mobile uploads from any 4G/5G device
       async function pollMessages() {
         try {
           const response = await fetch(`https://ntfy.sh/quickprint_${STATION_ID}/json?since=all`);
@@ -214,7 +213,6 @@
                 `;
                 fileQueue.prepend(tr);
 
-                // Audio notification beep
                 try {
                   const ctx = new (window.AudioContext || window.webkitAudioContext)();
                   const osc = ctx.createOscillator();
@@ -229,7 +227,6 @@
         } catch(e) {}
       }
 
-      // Check for incoming files every 2 seconds
       setInterval(pollMessages, 2000);
     }
   </script>
