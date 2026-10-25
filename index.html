@@ -101,9 +101,9 @@
       </div>
 
       <div class="card">
-        <div id="mobileStatus" class="status-badge status-waiting" style="margin-bottom: 16px;">Ready to Connect</div>
+        <div id="mobileStatus" class="status-badge status-waiting" style="margin-bottom: 16px;">Tap button below to connect</div>
         
-        <div class="dropzone" id="uploadCard" style="opacity: 0.6; pointer-events: none;">
+        <div class="dropzone" id="uploadCard" style="opacity: 0.4; pointer-events: none;">
           <svg style="width: 48px; height: 48px; fill: var(--primary); margin-bottom: 12px;" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
           <p style="font-weight: 600; margin-bottom: 8px;">Tap to select document/photo</p>
           <p style="font-size: 0.8rem; color: #64748b;">PDF, Word, Excel, Images supported</p>
@@ -113,7 +113,7 @@
           </label>
         </div>
 
-        <button id="connectBtn" onclick="connectToCounter()" style="margin-top: 8px;">Connect to Counter Printer</button>
+        <button id="connectBtn" onclick="connectToCounter()" style="margin-top: 8px;">Tap to Connect to Counter</button>
 
         <div id="uploadProgress" style="display: none; font-weight: 600; color: var(--primary); margin-top: 12px;"></div>
       </div>
@@ -123,12 +123,11 @@
   <script>
     const FIXED_STATION_ID = "beachview246-counter-printer";
 
-    // Explicit PeerJS cloud configuration options for maximum stability
+    // Stable PeerJS cloud configuration
     const peerConfig = {
       host: '0.peerjs.com',
       port: 443,
-      secure: true,
-      debug: 1
+      secure: true
     };
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -143,7 +142,7 @@
       function connectToCounter() {
         document.getElementById('mobileStatus').innerText = 'Connecting to Counter...';
         document.getElementById('mobileStatus').className = 'status-badge status-waiting';
-        document.getElementById('connectBtn').innerText = 'Connecting...';
+        document.getElementById('connectBtn').innerText = 'Connecting, please wait...';
 
         if (peer) {
           try { peer.destroy(); } catch(e){}
@@ -151,7 +150,8 @@
 
         peer = new Peer(peerConfig);
 
-        peer.on('open', () => {
+        peer.on('open', (id) => {
+          console.log('Peer open with id:', id);
           conn = peer.connect(FIXED_STATION_ID, { reliable: true });
           
           conn.on('open', () => {
@@ -163,24 +163,22 @@
           });
 
           conn.on('error', (err) => {
-            document.getElementById('mobileStatus').innerText = 'Connection failed. Tap retry.';
-            document.getElementById('connectBtn').innerText = 'Retry Connection';
+            console.error('Connection error:', err);
+            document.getElementById('mobileStatus').innerText = 'Connection dropped. Tap to Retry.';
+            document.getElementById('connectBtn').innerText = 'Tap to Retry Connection';
           });
         });
 
         peer.on('error', (err) => {
-          document.getElementById('mobileStatus').innerText = 'Network error. Tap retry.';
-          document.getElementById('connectBtn').innerText = 'Retry Connection';
+          console.error('Peer error:', err);
+          document.getElementById('mobileStatus').innerText = 'Network error. Tap to Retry.';
+          document.getElementById('connectBtn').innerText = 'Tap to Retry Connection';
         });
       }
 
-      window.onload = () => {
-        connectToCounter();
-      };
-
       function sendFile(file) {
         if (!file || !conn || conn.open !== true) {
-          alert('Please ensure you are connected to the counter first!');
+          alert('Not connected to counter yet! Please tap "Tap to Connect to Counter" first.');
           return;
         }
         document.getElementById('uploadProgress').style.display = 'block';
