@@ -56,7 +56,7 @@
           <p style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">Print this once and place it on your counter!</p>
           <div class="qr-container" style="margin-top: 16px;">
             <div id="qrcode"></div>
-            <span id="stationStatus" class="status-badge status-online">Online & Ready (Cloud Relay Active)</span>
+            <span id="stationStatus" class="status-badge status-online">Online & Ready</span>
           </div>
         </div>
 
@@ -65,8 +65,7 @@
           <p style="margin-top: 12px; font-size: 0.9rem; line-height: 1.5;">
             <strong>Counter ID:</strong> <code id="counterIdDisplay">beachview246-counter-printer</code><br>
             <strong>Status:</strong> Ready for 4G & 5G mobile connections.<br>
-            <strong>Connection type:</strong> Secure Cloud HTTPS Relay.<br>
-            <strong>Storage:</strong> Direct PC transfer.
+            <strong>Connection type:</strong> Universal Cloud Relay.
           </p>
         </div>
       </div>
@@ -99,7 +98,7 @@
       </div>
 
       <div class="card">
-        <div id="mobileStatus" class="status-badge status-online" style="margin-bottom: 16px;">Ready (4G & 5G Compatible)</div>
+        <div id="mobileStatus" class="status-badge status-online" style="margin-bottom: 16px;">Ready (4G & 5G)</div>
         
         <div class="dropzone" id="uploadCard">
           <svg style="width: 48px; height: 48px; fill: var(--primary); margin-bottom: 12px;" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
@@ -131,11 +130,11 @@
         const progress = document.getElementById('uploadProgress');
         progress.style.display = 'block';
         progress.style.color = 'var(--primary)';
-        progress.innerText = 'Preparing file for upload...';
+        progress.innerText = 'Reading file (' + (file.size / 1024).toFixed(1) + ' KB)...';
 
         const reader = new FileReader();
         reader.onerror = function() {
-          progress.innerText = 'Error reading file. Please try a smaller file.';
+          progress.innerText = 'Error reading file.';
           progress.style.color = '#dc2626';
         };
 
@@ -149,25 +148,31 @@
             timestamp: Date.now()
           };
 
-          progress.innerText = 'Sending to counter relay...';
+          progress.innerText = 'Sending to counter...';
 
           try {
-            await fetch(`https://ntfy.sh/quickprint_${STATION_ID}`, {
+            // Send using a direct lightweight fetch post to ntfy relay
+            const res = await fetch(`https://ntfy.sh/quickprint_${STATION_ID}`, {
               method: 'POST',
+              headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify(payload)
             });
 
-            progress.innerText = '✓ Sent successfully! Check with counter.';
-            progress.style.color = '#16a34a';
+            if (res.ok) {
+              progress.innerText = '✓ Sent successfully! Ready for next file.';
+              progress.style.color = '#16a34a';
+            } else {
+              throw new Error('Server response failed');
+            }
           } catch (err) {
-            progress.innerText = 'Upload failed. Check your network and retry.';
+            progress.innerText = 'Upload failed. Try a smaller file or check connection.';
             progress.style.color = '#dc2626';
           }
         };
         reader.readAsDataURL(file);
       }
     } else {
-      // DESKTOP COUNTER DASHBOARD VIEW (Ensure no ?station= in URL)
+      // DESKTOP COUNTER DASHBOARD VIEW
       document.getElementById('desktopMode').style.display = 'block';
       document.getElementById('counterIdDisplay').innerText = STATION_ID;
 
