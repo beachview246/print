@@ -1,223 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickPrint Station - USB Tethering Bridge</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-        body { background: var(--bg); color: var(--text); padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h1 { font-size: 24px; color: var(--primary); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media(max-width: 768px) { .grid { grid-template-columns: 1fr; } }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: #f1f5f9; border-radius: 8px; margin-top: 15px; }
-        button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        button:hover { opacity: 0.9; }
-        input, select { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-        th { background: #f8fafc; }
-        .badge { background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-        .badge.printed { background: #d1fae5; color: #059669; }
-        #mobile-view { display: none; max-width: 480px; margin: 40px auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuickPrint Station</title>
+  <!-- PeerJS P2P Library for instant cross-network transfer -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- QRCode Generator Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--border); }
+    .header h1 { color: var(--primary); font-size: 1.8rem; margin-bottom: 4px; }
+    .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .qr-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; background: #fff; border-radius: 8px; border: 1px solid var(--border); }
+    #qrcode img, #qrcode canvas { max-width: 220px; height: auto; }
+    .status-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; margin-top: 10px; }
+    .status-online { background: #dcfce7; color: #15803d; }
+    .status-waiting { background: #fef3c7; color: #b45309; }
+    button, label.btn { display: inline-block; width: 100%; text-align: center; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s; }
+    button:hover, label.btn:hover { background: #1d4ed8; }
+    input[type="file"] { display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    th { background: #f1f5f9; color: #475569; }
+    .download-btn { background: var(--success); padding: 6px 12px; font-size: 0.85rem; width: auto; text-decoration: none; color: white; border-radius: 6px; display: inline-block; }
+    .download-btn:hover { background: #15803d; }
+    .customer-view { max-width: 480px; margin: 0 auto; text-align: center; }
+    .dropzone { border: 2px dashed var(--primary); border-radius: 12px; padding: 32px 16px; background: #eff6ff; margin: 20px 0; }
+  </style>
 </head>
 <body>
 
-    <!-- DESKTOP DASHBOARD -->
-    <div id="desktop-view" class="container">
-        <header>
-            <h1>🖨️ QuickPrint Station (USB Bridge)</h1>
-            <button onclick="switchView('mobile')">Switch to Mobile Upload View</button>
-        </header>
+  <div class="container">
+    <!-- DESKTOP DASHBOARD MODE -->
+    <div id="desktopMode" style="display: none;">
+      <div class="header">
+        <h1>QuickPrint Station Counter Dashboard</h1>
+        <p>Walk-in customer documents will appear here automatically in real time.</p>
+      </div>
 
-        <div class="grid">
-            <div class="card">
-                <h3>Customer QR Code</h3>
-                <p style="font-size: 13px; color: #64748b; margin-top: 5px;">Customers scan this to upload documents from their phones over USB tethering.</p>
-                <div class="qr-box">
-                    <div id="qrcode"></div>
-                    <p id="qr-url-display" style="font-size: 11px; margin-top: 10px; word-break: break-all; color: #475569;"></p>
-                </div>
-                <label style="margin-top: 15px; display: block; font-weight: 600; font-size: 13px;">Set Local USB / Network URL:</label>
-                <input type="text" id="custom-ip-input" placeholder="http://192.168.42.x:8080">
-                <button onclick="updateQRCode()" style="width: 100%;">Update QR Code</button>
-            </div>
-
-            <div class="card">
-                <h3>Printer Control</h3>
-                <p style="font-size: 13px; color: #64748b; margin-top: 5px;">Connected to system default printer.</p>
-                <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px;">
-                    <strong>Status:</strong> Ready for Print Jobs<br>
-                    <strong>Paper Size:</strong> A4 Standard<br>
-                    <strong>Connection:</strong> USB Tethering Active
-                </div>
-                <button onclick="window.print()" style="margin-top: 20px; width: 100%; background: #059669;">Test System Printer Dialog</button>
-            </div>
+      <div class="grid">
+        <div class="card">
+          <h3>Customer QR Code</h3>
+          <p style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">Display this or print it on your counter.</p>
+          <div class="qr-container" style="margin-top: 16px;">
+            <div id="qrcode"></div>
+            <span id="stationStatus" class="status-badge status-waiting">Initializing Station...</span>
+          </div>
         </div>
 
         <div class="card">
-            <h3>Live Customer Documents Queue</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Customer File</th>
-                        <th>Copies / Settings</th>
-                        <th>Time</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="queue-list">
-                    <tr>
-                        <td colspan="5" style="text-align: center; color: #94a3b8;">No documents in queue yet. Scan QR to upload.</td>
-                    </tr>
-                </tbody>
-            </table>
+          <h3>Station Info</h3>
+          <p style="margin-top: 12px; font-size: 0.9rem; line-height: 1.5;">
+            <strong>Status:</strong> Ready for mobile connections.<br>
+            <strong>Connection type:</strong> Cloud P2P Relay (Works on Mobile Data, Wi-Fi, 5G).<br>
+            <strong>Storage:</strong> Direct PC transfer (No server logs retained).
+          </p>
         </div>
+      </div>
+
+      <div class="card">
+        <h3>Live Customer Documents Queue</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Size</th>
+              <th>Time Received</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="fileQueue">
+            <tr id="emptyRow">
+              <td colspan="4" style="text-align: center; color: #94a3b8; padding: 24px;">No documents received yet. Waiting for customer uploads...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- MOBILE UPLOAD VIEW -->
-    <div id="mobile-view">
-        <h2 style="color: var(--primary); margin-bottom: 10px;">📄 Print Shop Instant Upload</h2>
-        <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;">Upload documents directly to the counter printer.</p>
+    <!-- MOBILE UPLOAD PORTAL MODE -->
+    <div id="mobileMode" class="customer-view" style="display: none;">
+      <div class="header">
+        <h1>QuickPrint Upload</h1>
+        <p>Select your file to send directly to the shop counter printer.</p>
+      </div>
+
+      <div class="card">
+        <div id="mobileStatus" class="status-badge status-waiting" style="margin-bottom: 16px;">Connecting to Print Counter...</div>
         
-        <input type="text" id="cust-name" placeholder="Enter Your Name / Mobile Number" style="margin-bottom: 10px;">
-        <input type="file" id="file-input" style="padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; width: 100%; margin-bottom: 15px;" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
-        
-        <div style="text-align: left; margin-bottom: 15px;">
-            <label style="font-size: 13px; font-weight: 600;">Number of Copies:</label>
-            <input type="number" id="copies-count" value="1" min="1" max="20">
+        <div class="dropzone">
+          <svg style="width: 48px; height: 48px; fill: var(--primary); margin-bottom: 12px;" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+          <p style="font-weight: 600; margin-bottom: 8px;">Tap to select document/photo</p>
+          <p style="font-size: 0.8rem; color: #64748b;">PDF, Word, Excel, Images supported</p>
+          <label class="btn" style="margin-top: 16px;">
+            Choose File
+            <input type="file" id="fileInput" onchange="sendFile(this.files[0])">
+          </label>
         </div>
 
-        <button onclick="submitDocument()" style="width: 100%; padding: 12px; font-size: 16px;">Send to Print Desk</button>
-        <button onclick="switchView('desktop')" style="background: transparent; color: #64748b; margin-top: 15px; border: none; box-shadow: none;">Back to Dashboard</button>
+        <div id="uploadProgress" style="display: none; font-weight: 600; color: var(--primary);">
+          Sending file to printer counter...
+        </div>
+      </div>
     </div>
+  </div>
 
-    <script>
-        let queue = JSON.parse(localStorage.getItem('print_queue') || '[]');
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const stationId = urlParams.get('station');
+    const isMobile = urlParams.get('mode') === 'mobile' || stationId !== null;
 
-        function getBaseUrl() {
-            let saved = localStorage.getItem('custom_qr_url');
-            if (saved) return saved;
-            return window.location.origin + window.location.pathname + '?mode=mobile';
+    if (isMobile) {
+      // CUSTOMER MOBILE VIEW
+      document.getElementById('mobileMode').style.display = 'block';
+      
+      const peer = new Peer();
+      let conn = null;
+
+      peer.on('open', (id) => {
+        if (!stationId) {
+          document.getElementById('mobileStatus').innerText = 'Invalid QR code. Please scan again.';
+          return;
         }
+        conn = peer.connect(stationId);
+        
+        conn.on('open', () => {
+          document.getElementById('mobileStatus').innerText = 'Connected to Printer Desk!';
+          document.getElementById('mobileStatus').className = 'status-badge status-online';
+        });
 
-        function initQR() {
-            let url = getBaseUrl();
-            document.getElementById('qr-url-display').innerText = url;
-            document.getElementById('custom-ip-input').value = url;
-            document.getElementById('qrcode').innerHTML = "";
-            new QRCode(document.getElementById("qrcode"), {
-                text: url,
-                width: 180,
-                height: 180
-            });
-        }
+        conn.on('error', () => {
+          document.getElementById('mobileStatus').innerText = 'Connection error. Re-scan QR Code.';
+        });
+      });
 
-        function updateQRCode() {
-            let val = document.getElementById('custom-ip-input').value;
-            if(val) {
-                localStorage.setItem('custom_qr_url', val);
-                initQR();
-                alert('QR Code updated successfully!');
-            }
-        }
-
-        function switchView(mode) {
-            if(mode === 'mobile') {
-                document.getElementById('desktop-view').style.display = 'none';
-                document.getElementById('mobile-view').style.display = 'block';
-            } else {
-                document.getElementById('mobile-view').style.display = 'none';
-                document.getElementById('desktop-view').style.display = 'block';
-                renderQueue();
-            }
-        }
-
-        function submitDocument() {
-            let name = document.getElementById('cust-name').value || 'Walk-in Customer';
-            let fileInput = document.getElementById('file-input');
-            let copies = document.getElementById('copies-count').value;
-
-            if(fileInput.files.length === 0) {
-                alert('Please select a document to upload!');
-                return;
-            }
-
-            let file = fileInput.files[0];
-            let reader = new FileReader();
-            reader.onload = function(e) {
-                let job = {
-                    id: Date.now(),
-                    name: name,
-                    fileName: file.name,
-                    fileData: e.target.result,
-                    copies: copies,
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    status: 'Pending'
-                };
-                queue.unshift(job);
-                localStorage.setItem('print_queue', JSON.stringify(queue));
-                alert('Document uploaded successfully! Inform the shop operator.');
-                location.reload();
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function renderQueue() {
-            let tbody = document.getElementById('queue-list');
-            if(queue.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8;">No documents in queue yet. Scan QR to upload.</td></tr>`;
-                return;
-            }
-            tbody.innerHTML = queue.map((job, index) => `
-                <tr>
-                    <td><strong>${job.fileName}</strong><br><small style="color: #64748b;">Customer: ${job.name}</small></td>
-                    <td>${job.copies} Copies</td>
-                    <td>${job.time}</td>
-                    <td><span class="badge ${job.status === 'Printed' ? 'printed' : ''}">${job.status}</span></td>
-                    <td>
-                        <button onclick="printJob(${index})" style="padding: 6px 12px; font-size: 12px;">Print Now</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function printJob(index) {
-            let job = queue[index];
-            let win = window.open('', '_blank');
-            win.document.write(`<html><head><title>Print ${job.fileName}</title></head><body style="text-align:center; padding:20px;">`);
-            win.document.write(`<h2>Printing for: ${job.name} (${job.copies} Copies)</h2><hr>`);
-            if(job.fileData.startsWith('data:image')) {
-                win.document.write(`<img src="${job.fileData}" style="max-width:100%; max-height:90vh;">`);
-            } else {
-                win.document.write(`<iframe src="${job.fileData}" style="width:100%; height:85vh;" frameborder="0"></iframe>`);
-            }
-            win.document.write('</body></html>');
-            win.document.close();
-            setTimeout(() => {
-                win.print();
-                queue[index].status = 'Printed';
-                localStorage.setItem('print_queue', JSON.stringify(queue));
-                renderQueue();
-            }, 1000);
-        }
-
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if(urlParams.get('mode') === 'mobile') {
-                switchView('mobile');
-            } else {
-                initQR();
-                renderQueue();
-            }
+      function sendFile(file) {
+        if (!file || !conn) return;
+        document.getElementById('uploadProgress').style.display = 'block';
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          conn.send({
+            name: file.name,
+            size: (file.size / 1024).toFixed(1) + ' KB',
+            type: file.type,
+            data: event.target.result,
+            time: new Date().toLocaleTimeString()
+          });
+          document.getElementById('uploadProgress').innerText = '✓ Sent successfully! Check with counter.';
+          document.getElementById('uploadProgress').style.color = '#16a34a';
         };
-    </script>
+        reader.readAsDataURL(file);
+      }
+    } else {
+      // DESKTOP COUNTER DASHBOARD VIEW
+      document.getElementById('desktopMode').style.display = 'block';
+      
+      const uniqueStationID = 'quickprint-' + Math.random().toString(36).substring(2, 9);
+      const peer = new Peer(uniqueStationID);
+
+      peer.on('open', (id) => {
+        document.getElementById('stationStatus').innerText = 'Online & Ready';
+        document.getElementById('stationStatus').className = 'status-badge status-online';
+        
+        const customerURL = `https://beachview246.github.io/print/?station=${id}`;
+        
+        document.getElementById('qrcode').innerHTML = '';
+        new QRCode(document.getElementById('qrcode'), {
+          text: customerURL,
+          width: 200,
+          height: 200
+        });
+      });
+
+      peer.on('connection', (conn) => {
+        conn.on('data', (data) => {
+          const emptyRow = document.getElementById('emptyRow');
+          if (emptyRow) emptyRow.remove();
+
+          const fileQueue = document.getElementById('fileQueue');
+          const tr = document.createElement('tr');
+          
+          tr.innerHTML = `
+            <td><strong>${data.name}</strong></td>
+            <td>${data.size}</td>
+            <td>${data.time}</td>
+            <td>
+              <a href="${data.data}" download="${data.name}" class="download-btn">Download & Print</a>
+            </td>
+          `;
+          fileQueue.prepend(tr);
+
+          // Play notification chime
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            osc.connect(ctx.destination);
+            osc.frequency.value = 587.33;
+            osc.start();
+            osc.stop(ctx.currentTime + 0.2);
+          } catch(e) {}
+        });
+      });
+    }
+  </script>
 </body>
 </html>
