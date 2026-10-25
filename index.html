@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>QuickPrint Station</title>
-  <!-- PeerJS P2P Library for instant cross-network transfer -->
+  <!-- PeerJS P2P Library -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <!-- QRCode Generator Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -54,19 +54,20 @@
 
       <div class="grid">
         <div class="card">
-          <h3>Customer QR Code</h3>
-          <p style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">Display this or print it on your counter.</p>
+          <h3>Permanent Customer QR Code</h3>
+          <p style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">Print this once and place it on your counter!</p>
           <div class="qr-container" style="margin-top: 16px;">
             <div id="qrcode"></div>
-            <span id="stationStatus" class="status-badge status-waiting">Initializing Station...</span>
+            <span id="stationStatus" class="status-badge status-waiting">Initializing Counter...</span>
           </div>
         </div>
 
         <div class="card">
           <h3>Station Info</h3>
           <p style="margin-top: 12px; font-size: 0.9rem; line-height: 1.5;">
+            <strong>Counter ID:</strong> <code>beachview246-counter</code><br>
             <strong>Status:</strong> Ready for mobile connections.<br>
-            <strong>Connection type:</strong> Cloud P2P Relay (Works on Mobile Data, Wi-Fi, 5G).<br>
+            <strong>Connection type:</strong> Direct Cloud P2P Relay (Works on Mobile Data, Wi-Fi, 5G).<br>
             <strong>Storage:</strong> Direct PC transfer (No server logs retained).
           </p>
         </div>
@@ -120,9 +121,11 @@
   </div>
 
   <script>
+    // FIXED PERMANENT STATION ID FOR YOUR SHOP
+    const FIXED_STATION_ID = "beachview246-counter";
+
     const urlParams = new URLSearchParams(window.location.search);
-    const stationId = urlParams.get('station');
-    const isMobile = urlParams.get('mode') === 'mobile' || stationId !== null;
+    const isMobile = urlParams.get('mode') === 'mobile' || urlParams.get('station') !== null;
 
     if (isMobile) {
       // CUSTOMER MOBILE VIEW
@@ -131,12 +134,8 @@
       const peer = new Peer();
       let conn = null;
 
-      peer.on('open', (id) => {
-        if (!stationId) {
-          document.getElementById('mobileStatus').innerText = 'Invalid QR code. Please scan again.';
-          return;
-        }
-        conn = peer.connect(stationId);
+      peer.on('open', () => {
+        conn = peer.connect(FIXED_STATION_ID);
         
         conn.on('open', () => {
           document.getElementById('mobileStatus').innerText = 'Connected to Printer Desk!';
@@ -144,13 +143,15 @@
         });
 
         conn.on('error', () => {
-          document.getElementById('mobileStatus').innerText = 'Connection error. Re-scan QR Code.';
+          document.getElementById('mobileStatus').innerText = 'Counter offline or reconnecting...';
         });
       });
 
       function sendFile(file) {
         if (!file || !conn) return;
         document.getElementById('uploadProgress').style.display = 'block';
+        document.getElementById('uploadProgress').style.color = 'var(--primary)';
+        document.getElementById('uploadProgress').innerText = 'Sending file to printer counter...';
         
         const reader = new FileReader();
         reader.onload = function(event) {
@@ -170,21 +171,29 @@
       // DESKTOP COUNTER DASHBOARD VIEW
       document.getElementById('desktopMode').style.display = 'block';
       
-      const uniqueStationID = 'quickprint-' + Math.random().toString(36).substring(2, 9);
-      const peer = new Peer(uniqueStationID);
+      // Initialize Peer with the FIXED station ID
+      const peer = new Peer(FIXED_STATION_ID);
 
       peer.on('open', (id) => {
         document.getElementById('stationStatus').innerText = 'Online & Ready';
         document.getElementById('stationStatus').className = 'status-badge status-online';
         
-        const customerURL = `https://beachview246.github.io/print/?station=${id}`;
+        const permanentCustomerURL = `https://beachview246.github.io/print/?station=${FIXED_STATION_ID}`;
         
         document.getElementById('qrcode').innerHTML = '';
         new QRCode(document.getElementById('qrcode'), {
-          text: customerURL,
+          text: permanentCustomerURL,
           width: 200,
           height: 200
         });
+      });
+
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+          // If already open in another tab, inform the user
+          document.getElementById('stationStatus').innerText = 'Station already open in another tab';
+          document.getElementById('stationStatus').className = 'status-badge status-waiting';
+        }
       });
 
       peer.on('connection', (conn) => {
@@ -205,7 +214,7 @@
           `;
           fileQueue.prepend(tr);
 
-          // Play notification chime
+          // Play notification sound
           try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
