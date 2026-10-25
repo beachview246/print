@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickPrint Station - USB Tethering Bridge</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h1 { font-size: 24px; color: var(--primary); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media(max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: #f1f5f9; border-radius: 8px; margin-top: 15px; }
+        button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        button:hover { opacity: 0.9; }
+        input, select { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        th { background: #f8fafc; }
+        .badge { background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .badge.printed { background: #d1fae5; color: #059669; }
+        #mobile-view { display: none; max-width: 480px; margin: 40px auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+    </style>
+</head>
+<body>
+
+    <!-- DESKTOP DASHBOARD -->
+    <div id="desktop-view" class="container">
+        <header>
+            <h1>🖨️ QuickPrint Station (USB Bridge)</h1>
+            <button onclick="switchView('mobile')">Switch to Mobile Upload View</button>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <h3>Customer QR Code</h3>
+                <p style="font-size: 13px; color: #64748b; margin-top: 5px;">Customers scan this to upload documents from their phones over USB tethering.</p>
+                <div class="qr-box">
+                    <div id="qrcode"></div>
+                    <p id="qr-url-display" style="font-size: 11px; margin-top: 10px; word-break: break-all; color: #475569;"></p>
+                </div>
+                <label style="margin-top: 15px; display: block; font-weight: 600; font-size: 13px;">Set Local USB / Network URL:</label>
+                <input type="text" id="custom-ip-input" placeholder="http://192.168.42.x:8080">
+                <button onclick="updateQRCode()" style="width: 100%;">Update QR Code</button>
+            </div>
+
+            <div class="card">
+                <h3>Printer Control</h3>
+                <p style="font-size: 13px; color: #64748b; margin-top: 5px;">Connected to system default printer.</p>
+                <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+                    <strong>Status:</strong> Ready for Print Jobs<br>
+                    <strong>Paper Size:</strong> A4 Standard<br>
+                    <strong>Connection:</strong> USB Tethering Active
+                </div>
+                <button onclick="window.print()" style="margin-top: 20px; width: 100%; background: #059669;">Test System Printer Dialog</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Live Customer Documents Queue</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer File</th>
+                        <th>Copies / Settings</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="queue-list">
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #94a3b8;">No documents in queue yet. Scan QR to upload.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MOBILE UPLOAD VIEW -->
+    <div id="mobile-view">
+        <h2 style="color: var(--primary); margin-bottom: 10px;">📄 Print Shop Instant Upload</h2>
+        <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;">Upload documents directly to the counter printer.</p>
+        
+        <input type="text" id="cust-name" placeholder="Enter Your Name / Mobile Number" style="margin-bottom: 10px;">
+        <input type="file" id="file-input" style="padding: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; width: 100%; margin-bottom: 15px;" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+        
+        <div style="text-align: left; margin-bottom: 15px;">
+            <label style="font-size: 13px; font-weight: 600;">Number of Copies:</label>
+            <input type="number" id="copies-count" value="1" min="1" max="20">
+        </div>
+
+        <button onclick="submitDocument()" style="width: 100%; padding: 12px; font-size: 16px;">Send to Print Desk</button>
+        <button onclick="switchView('desktop')" style="background: transparent; color: #64748b; margin-top: 15px; border: none; box-shadow: none;">Back to Dashboard</button>
+    </div>
+
+    <script>
+        let queue = JSON.parse(localStorage.getItem('print_queue') || '[]');
+
+        function getBaseUrl() {
+            let saved = localStorage.getItem('custom_qr_url');
+            if (saved) return saved;
+            return window.location.origin + window.location.pathname + '?mode=mobile';
+        }
+
+        function initQR() {
+            let url = getBaseUrl();
+            document.getElementById('qr-url-display').innerText = url;
+            document.getElementById('custom-ip-input').value = url;
+            document.getElementById('qrcode').innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), {
+                text: url,
+                width: 180,
+                height: 180
+            });
+        }
+
+        function updateQRCode() {
+            let val = document.getElementById('custom-ip-input').value;
+            if(val) {
+                localStorage.setItem('custom_qr_url', val);
+                initQR();
+                alert('QR Code updated successfully!');
+            }
+        }
+
+        function switchView(mode) {
+            if(mode === 'mobile') {
+                document.getElementById('desktop-view').style.display = 'none';
+                document.getElementById('mobile-view').style.display = 'block';
+            } else {
+                document.getElementById('mobile-view').style.display = 'none';
+                document.getElementById('desktop-view').style.display = 'block';
+                renderQueue();
+            }
+        }
+
+        function submitDocument() {
+            let name = document.getElementById('cust-name').value || 'Walk-in Customer';
+            let fileInput = document.getElementById('file-input');
+            let copies = document.getElementById('copies-count').value;
+
+            if(fileInput.files.length === 0) {
+                alert('Please select a document to upload!');
+                return;
+            }
+
+            let file = fileInput.files[0];
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                let job = {
+                    id: Date.now(),
+                    name: name,
+                    fileName: file.name,
+                    fileData: e.target.result,
+                    copies: copies,
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    status: 'Pending'
+                };
+                queue.unshift(job);
+                localStorage.setItem('print_queue', JSON.stringify(queue));
+                alert('Document uploaded successfully! Inform the shop operator.');
+                location.reload();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderQueue() {
+            let tbody = document.getElementById('queue-list');
+            if(queue.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8;">No documents in queue yet. Scan QR to upload.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = queue.map((job, index) => `
+                <tr>
+                    <td><strong>${job.fileName}</strong><br><small style="color: #64748b;">Customer: ${job.name}</small></td>
+                    <td>${job.copies} Copies</td>
+                    <td>${job.time}</td>
+                    <td><span class="badge ${job.status === 'Printed' ? 'printed' : ''}">${job.status}</span></td>
+                    <td>
+                        <button onclick="printJob(${index})" style="padding: 6px 12px; font-size: 12px;">Print Now</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function printJob(index) {
+            let job = queue[index];
+            let win = window.open('', '_blank');
+            win.document.write(`<html><head><title>Print ${job.fileName}</title></head><body style="text-align:center; padding:20px;">`);
+            win.document.write(`<h2>Printing for: ${job.name} (${job.copies} Copies)</h2><hr>`);
+            if(job.fileData.startsWith('data:image')) {
+                win.document.write(`<img src="${job.fileData}" style="max-width:100%; max-height:90vh;">`);
+            } else {
+                win.document.write(`<iframe src="${job.fileData}" style="width:100%; height:85vh;" frameborder="0"></iframe>`);
+            }
+            win.document.write('</body></html>');
+            win.document.close();
+            setTimeout(() => {
+                win.print();
+                queue[index].status = 'Printed';
+                localStorage.setItem('print_queue', JSON.stringify(queue));
+                renderQueue();
+            }, 1000);
+        }
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if(urlParams.get('mode') === 'mobile') {
+                switchView('mobile');
+            } else {
+                initQR();
+                renderQueue();
+            }
+        };
+    </script>
+</body>
+</html>
