@@ -65,9 +65,9 @@
         <div class="card">
           <h3>Station Info</h3>
           <p style="margin-top: 12px; font-size: 0.9rem; line-height: 1.5;">
-            <strong>Counter ID:</strong> <code>beachview246-counter</code><br>
+            <strong>Counter ID:</strong> <code id="counterIdDisplay">beachview246-counter</code><br>
             <strong>Status:</strong> Ready for mobile connections.<br>
-            <strong>Connection type:</strong> Direct Cloud P2P Relay (Works on Mobile Data, Wi-Fi, 5G).<br>
+            <strong>Connection type:</strong> Direct Cloud P2P Relay.<br>
             <strong>Storage:</strong> Direct PC transfer (No server logs retained).
           </p>
         </div>
@@ -121,30 +121,36 @@
   </div>
 
   <script>
-    const FIXED_STATION_ID = "beachview246-counter";
+    // FIXED PERMANENT STATION ID
+    const FIXED_STATION_ID = "beachview246-counter-printer";
 
-    // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const stationParam = urlParams.get('station');
 
-    // If 'station' parameter is present, force mobile upload portal
     if (stationParam !== null) {
+      // MOBILE UPLOAD VIEW
       document.getElementById('mobileMode').style.display = 'block';
       
+      // Use public PeerJS cloud with debug logging disabled
       const peer = new Peer();
       let conn = null;
 
       peer.on('open', () => {
-        conn = peer.connect(FIXED_STATION_ID);
+        document.getElementById('mobileStatus').innerText = 'Connecting to Counter...';
+        conn = peer.connect(FIXED_STATION_ID, { reliable: true });
         
         conn.on('open', () => {
           document.getElementById('mobileStatus').innerText = 'Connected to Printer Desk!';
           document.getElementById('mobileStatus').className = 'status-badge status-online';
         });
 
-        conn.on('error', () => {
+        conn.on('error', (err) => {
           document.getElementById('mobileStatus').innerText = 'Counter offline or reconnecting...';
         });
+      });
+
+      peer.on('error', (err) => {
+        document.getElementById('mobileStatus').innerText = 'Connection error. Retrying...';
       });
 
       function sendFile(file) {
@@ -168,60 +174,70 @@
         reader.readAsDataURL(file);
       }
     } else {
-      // Otherwise, show Desktop Counter Dashboard
+      // DESKTOP COUNTER DASHBOARD VIEW
       document.getElementById('desktopMode').style.display = 'block';
+      document.getElementById('counterIdDisplay').innerText = FIXED_STATION_ID;
       
-      const peer = new Peer(FIXED_STATION_ID);
+      function initPeer() {
+        const peer = new Peer(FIXED_STATION_ID);
 
-      peer.on('open', (id) => {
-        document.getElementById('stationStatus').innerText = 'Online & Ready';
-        document.getElementById('stationStatus').className = 'status-badge status-online';
-        
-        const permanentCustomerURL = `https://beachview246.github.io/print/?station=${FIXED_STATION_ID}`;
-        
-        document.getElementById('qrcode').innerHTML = '';
-        new QRCode(document.getElementById('qrcode'), {
-          text: permanentCustomerURL,
-          width: 200,
-          height: 200
-        });
-      });
-
-      peer.on('error', (err) => {
-        if (err.type === 'unavailable-id') {
-          document.getElementById('stationStatus').innerText = 'Station already open in another tab';
-          document.getElementById('stationStatus').className = 'status-badge status-waiting';
-        }
-      });
-
-      peer.on('connection', (conn) => {
-        conn.on('data', (data) => {
-          const emptyRow = document.getElementById('emptyRow');
-          if (emptyRow) emptyRow.remove();
-
-          const fileQueue = document.getElementById('fileQueue');
-          const tr = document.createElement('tr');
+        peer.on('open', (id) => {
+          document.getElementById('stationStatus').innerText = 'Online & Ready';
+          document.getElementById('stationStatus').className = 'status-badge status-online';
           
-          tr.innerHTML = `
-            <td><strong>${data.name}</strong></td>
-            <td>${data.size}</td>
-            <td>${data.time}</td>
-            <td>
-              <a href="${data.data}" download="${data.name}" class="download-btn">Download & Print</a>
-            </td>
-          `;
-          fileQueue.prepend(tr);
-
-          try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            osc.connect(ctx.destination);
-            osc.frequency.value = 587.33;
-            osc.start();
-            osc.stop(ctx.currentTime + 0.2);
-          } catch(e) {}
+          const permanentCustomerURL = `https://beachview246.github.io/print/?station=${FIXED_STATION_ID}`;
+          
+          document.getElementById('qrcode').innerHTML = '';
+          new QRCode(document.getElementById('qrcode'), {
+            text: permanentCustomerURL,
+            width: 200,
+            height: 200
+          });
         });
-      });
+
+        peer.on('error', (err) => {
+          if (err.type === 'unavailable-id') {
+            document.getElementById('stationStatus').innerText = 'Reconnecting station...';
+            setTimeout(() => {
+              peer.destroy();
+              initPeer();
+            }, 3000);
+          } else {
+            document.getElementById('stationStatus').innerText = 'Error: ' + err.type;
+          }
+        });
+
+        peer.on('connection', (conn) => {
+          conn.on('data', (data) => {
+            const emptyRow = document.getElementById('emptyRow');
+            if (emptyRow) emptyRow.remove();
+
+            const fileQueue = document.getElementById('fileQueue');
+            const tr = document.createElement('tr');
+            
+            tr.innerHTML = `
+              <td><strong>${data.name}</strong></td>
+              <td>${data.size}</td>
+              <td>${data.time}</td>
+              <td>
+                <a href="${data.data}" download="${data.name}" class="download-btn">Download & Print</a>
+              </td>
+            `;
+            fileQueue.prepend(tr);
+
+            try {
+              const ctx = new (window.AudioContext || window.webkitAudioContext)();
+              const osc = ctx.createOscillator();
+              osc.connect(ctx.destination);
+              osc.frequency.value = 587.33;
+              osc.start();
+              osc.stop(ctx.currentTime + 0.2);
+            } catch(e) {}
+          });
+        });
+      }
+
+      initPeer();
     }
   </script>
 </body>
