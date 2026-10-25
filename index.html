@@ -121,14 +121,14 @@
   </div>
 
   <script>
-    // FIXED PERMANENT STATION ID FOR YOUR SHOP
     const FIXED_STATION_ID = "beachview246-counter";
 
+    // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search);
-    const isMobile = urlParams.get('mode') === 'mobile' || urlParams.get('station') !== null;
+    const stationParam = urlParams.get('station');
 
-    if (isMobile) {
-      // CUSTOMER MOBILE VIEW
+    // If 'station' parameter is present, force mobile upload portal
+    if (stationParam !== null) {
       document.getElementById('mobileMode').style.display = 'block';
       
       const peer = new Peer();
@@ -168,10 +168,9 @@
         reader.readAsDataURL(file);
       }
     } else {
-      // DESKTOP COUNTER DASHBOARD VIEW
+      // Otherwise, show Desktop Counter Dashboard
       document.getElementById('desktopMode').style.display = 'block';
       
-      // Initialize Peer with the FIXED station ID
       const peer = new Peer(FIXED_STATION_ID);
 
       peer.on('open', (id) => {
@@ -190,7 +189,6 @@
 
       peer.on('error', (err) => {
         if (err.type === 'unavailable-id') {
-          // If already open in another tab, inform the user
           document.getElementById('stationStatus').innerText = 'Station already open in another tab';
           document.getElementById('stationStatus').className = 'status-badge status-waiting';
         }
@@ -214,7 +212,6 @@
           `;
           fileQueue.prepend(tr);
 
-          // Play notification sound
           try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
