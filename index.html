@@ -123,6 +123,14 @@
   <script>
     const FIXED_STATION_ID = "beachview246-counter-printer";
 
+    // Explicit PeerJS cloud configuration options for maximum stability
+    const peerConfig = {
+      host: '0.peerjs.com',
+      port: 443,
+      secure: true,
+      debug: 1
+    };
+
     const urlParams = new URLSearchParams(window.location.search);
     const stationParam = urlParams.get('station');
 
@@ -141,7 +149,7 @@
           try { peer.destroy(); } catch(e){}
         }
 
-        peer = new Peer();
+        peer = new Peer(peerConfig);
 
         peer.on('open', () => {
           conn = peer.connect(FIXED_STATION_ID, { reliable: true });
@@ -166,7 +174,6 @@
         });
       }
 
-      // Auto-trigger connection on page load
       window.onload = () => {
         connectToCounter();
       };
@@ -200,7 +207,7 @@
       document.getElementById('counterIdDisplay').innerText = FIXED_STATION_ID;
       
       function initPeer() {
-        const peer = new Peer(FIXED_STATION_ID);
+        const peer = new Peer(FIXED_STATION_ID, peerConfig);
 
         peer.on('open', (id) => {
           document.getElementById('stationStatus').innerText = 'Online & Ready';
