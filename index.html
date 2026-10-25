@@ -39,7 +39,7 @@
     .download-btn { background: var(--success); padding: 6px 12px; font-size: 0.85rem; width: auto; text-decoration: none; color: white; border-radius: 6px; display: inline-block; }
     .download-btn:hover { background: #15803d; }
     .customer-view { max-width: 480px; margin: 0 auto; text-align: center; }
-    .dropzone { border: 2px dashed var(--primary); border-radius: 12px; padding: 32px 16px; background: #eff6ff; margin: 20px 0; }
+    .dropzone { border: 2px dashed var(--primary); border-radius: 12px; padding: 24px 16px; background: #eff6ff; margin: 16px 0; }
   </style>
 </head>
 <body>
@@ -65,7 +65,7 @@
         <div class="card">
           <h3>Station Info</h3>
           <p style="margin-top: 12px; font-size: 0.9rem; line-height: 1.5;">
-            <strong>Counter ID:</strong> <code id="counterIdDisplay">beachview246-counter</code><br>
+            <strong>Counter ID:</strong> <code id="counterIdDisplay">beachview246-counter-printer</code><br>
             <strong>Status:</strong> Ready for mobile connections.<br>
             <strong>Connection type:</strong> Direct Cloud P2P Relay.<br>
             <strong>Storage:</strong> Direct PC transfer (No server logs retained).
@@ -101,27 +101,26 @@
       </div>
 
       <div class="card">
-        <div id="mobileStatus" class="status-badge status-waiting" style="margin-bottom: 16px;">Connecting to Print Counter...</div>
+        <div id="mobileStatus" class="status-badge status-waiting" style="margin-bottom: 16px;">Ready to Connect</div>
         
-        <div class="dropzone">
+        <div class="dropzone" id="uploadCard" style="opacity: 0.6; pointer-events: none;">
           <svg style="width: 48px; height: 48px; fill: var(--primary); margin-bottom: 12px;" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
           <p style="font-weight: 600; margin-bottom: 8px;">Tap to select document/photo</p>
           <p style="font-size: 0.8rem; color: #64748b;">PDF, Word, Excel, Images supported</p>
-          <label class="btn" style="margin-top: 16px;">
+          <label class="btn" id="fileLabel" style="margin-top: 16px;">
             Choose File
             <input type="file" id="fileInput" onchange="sendFile(this.files[0])">
           </label>
         </div>
 
-        <div id="uploadProgress" style="display: none; font-weight: 600; color: var(--primary);">
-          Sending file to printer counter...
-        </div>
+        <button id="connectBtn" onclick="connectToCounter()" style="margin-top: 8px;">Connect to Counter Printer</button>
+
+        <div id="uploadProgress" style="display: none; font-weight: 600; color: var(--primary); margin-top: 12px;"></div>
       </div>
     </div>
   </div>
 
   <script>
-    // FIXED PERMANENT STATION ID
     const FIXED_STATION_ID = "beachview246-counter-printer";
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -130,31 +129,53 @@
     if (stationParam !== null) {
       // MOBILE UPLOAD VIEW
       document.getElementById('mobileMode').style.display = 'block';
-      
-      // Use public PeerJS cloud with debug logging disabled
-      const peer = new Peer();
+      let peer = null;
       let conn = null;
 
-      peer.on('open', () => {
+      function connectToCounter() {
         document.getElementById('mobileStatus').innerText = 'Connecting to Counter...';
-        conn = peer.connect(FIXED_STATION_ID, { reliable: true });
-        
-        conn.on('open', () => {
-          document.getElementById('mobileStatus').innerText = 'Connected to Printer Desk!';
-          document.getElementById('mobileStatus').className = 'status-badge status-online';
+        document.getElementById('mobileStatus').className = 'status-badge status-waiting';
+        document.getElementById('connectBtn').innerText = 'Connecting...';
+
+        if (peer) {
+          try { peer.destroy(); } catch(e){}
+        }
+
+        peer = new Peer();
+
+        peer.on('open', () => {
+          conn = peer.connect(FIXED_STATION_ID, { reliable: true });
+          
+          conn.on('open', () => {
+            document.getElementById('mobileStatus').innerText = 'Connected to Printer Desk!';
+            document.getElementById('mobileStatus').className = 'status-badge status-online';
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('uploadCard').style.opacity = '1';
+            document.getElementById('uploadCard').style.pointerEvents = 'auto';
+          });
+
+          conn.on('error', (err) => {
+            document.getElementById('mobileStatus').innerText = 'Connection failed. Tap retry.';
+            document.getElementById('connectBtn').innerText = 'Retry Connection';
+          });
         });
 
-        conn.on('error', (err) => {
-          document.getElementById('mobileStatus').innerText = 'Counter offline or reconnecting...';
+        peer.on('error', (err) => {
+          document.getElementById('mobileStatus').innerText = 'Network error. Tap retry.';
+          document.getElementById('connectBtn').innerText = 'Retry Connection';
         });
-      });
+      }
 
-      peer.on('error', (err) => {
-        document.getElementById('mobileStatus').innerText = 'Connection error. Retrying...';
-      });
+      // Auto-trigger connection on page load
+      window.onload = () => {
+        connectToCounter();
+      };
 
       function sendFile(file) {
-        if (!file || !conn) return;
+        if (!file || !conn || conn.open !== true) {
+          alert('Please ensure you are connected to the counter first!');
+          return;
+        }
         document.getElementById('uploadProgress').style.display = 'block';
         document.getElementById('uploadProgress').style.color = 'var(--primary)';
         document.getElementById('uploadProgress').innerText = 'Sending file to printer counter...';
